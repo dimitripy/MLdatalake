@@ -1,12 +1,11 @@
 from airflow import DAG
 from airflow.operators.python_operator import PythonOperator
 from datetime import datetime
+import subprocess
 
 def fetch_save_parquet():
-    # Führen Sie hier die entsprechenden Skripte aus
-    # z.B. subprocess.run(['python3', 'fetch_data.py'])
-    # subprocess.run(['python3', 'save_as_parquet.py'])
-    pass
+    subprocess.run(['python3', '/path/to/fetch_data.py'])
+    subprocess.run(['python3', '/path/to/save_as_parquet.py'])
 
 default_args = {
     'owner': 'airflow',
