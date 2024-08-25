@@ -1,36 +1,57 @@
-import sqlite3
 import json
-from google.colab import drive
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Enum, ForeignKey, Boolean
+from sqlalchemy.orm import declarative_base, sessionmaker, relationship
+import enum
 
-# Lade Konfiguration
-with open('db_config.json') as config_file:
+# Konfigurationen aus der JSON-Datei laden
+with open('db_conf.json') as config_file:
     config = json.load(config_file)
 
-# Mount Google Drive
-drive.mount('/content/drive')
+# MySQL-Datenbankverbindung herstellen
+db_type = config['db_type']
+username = config['username']
+password = config['password']
+host = config['host']
+port = config['port']
+database = config['database']
+echo = config['echo']
 
-# Verbindung zur SQLite-Datenbank herstellen
-conn = sqlite3.connect(config['db_path'])
-cursor = conn.cursor()
+# Verbindungsschema für MySQL
+url = f"{db_type}://{username}:{password}@{host}:{port}/{database}"
+engine = create_engine(url, echo=echo)
 
-# Tabelle erstellen und Daten einfügen (Beispiel)
-cursor.execute('''
-    CREATE TABLE IF NOT EXISTS ohlc_data (
-        symbol TEXT,
-        date TEXT,
-        open REAL,
-        high REAL,
-        low REAL,
-        close REAL,
-        volume REAL
-    )
-''')
+# Sitzung und Basis erstellen
+Session = sessionmaker(bind=engine)
+session = Session()
+Base = declarative_base()
 
-# Beispielhafte Daten einfügen
-data = [
-    ('BTC/USD', '2023-08-01', 29000, 29500, 28900, 29400, 1000),
-    # Weitere Daten ...
-]
-cursor.executemany('INSERT INTO ohlc_data VALUES (?, ?, ?, ?, ?, ?, ?)', data)
-conn.commit()
-conn.close()
+# Enum für den Markt
+class Market(enum.Enum):
+    crypto = 'crypto'
+    stock = 'stock'
+    forex = 'forex'
+    futures = 'futures'
+
+# Tabellendefinitionen
+class Symbol(Base):
+    __tablename__ = 'symbol'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    ticker = Column(String(50), nullable=False)
+    name = Column(String(200), nullable=False)
+    market = Column(Enum(Market), nullable=False)
+    active = Column(Boolean, nullable=False)
+
+class MinuteBar(Base):
+    __tablename__ = 'minute_bar'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    date = Column(DateTime, nullable=False)
+    open = Column(Float)
+    high = Column(Float)
+    low = Column(Float)
+    close = Column(Float)
+    volume = Column(Float)
+    symbol_id = Column(Integer, ForeignKey('symbol.id', ondelete="CASCADE"), nullable=False)
+    symbol = relationship('Symbol', backref='minute_bars')
+
+# Tabellen erstellen
+Base.metadata.create_all(engine)
