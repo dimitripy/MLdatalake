@@ -1,3 +1,5 @@
+#create_database.py
+
 import json
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Enum, ForeignKey, Boolean
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
