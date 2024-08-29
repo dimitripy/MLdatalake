@@ -26,3 +26,18 @@ cp -r "$SOURCE_DIR"/* "$TARGET_DIR"/
 
 # Ausgabe zur Bestätigung
 echo "DAGs wurden erfolgreich von $SOURCE_DIR nach $TARGET_DIR kopiert."
+
+# Aufruf des Registrierungsskripts
+PROJECT_NAME=$(basename "$SOURCE_DIR")
+DAG_PATH="$TARGET_DIR"
+
+# Annahme: `registry.sh` befindet sich im selben Verzeichnis wie dieses Skript
+REGISTRY_SCRIPT="${SCRIPT_DIR}/registry.sh"
+
+if [ ! -f "$REGISTRY_SCRIPT" ]; then
+  echo "registry.sh Skript nicht gefunden. Stelle sicher, dass es im selben Verzeichnis liegt wie dieses Skript."
+  exit 1
+fi
+
+# Unterprojekt in der Registry registrieren und Sync-DAG triggern
+bash "$REGISTRY_SCRIPT" "$PROJECT_NAME" "$DAG_PATH"
