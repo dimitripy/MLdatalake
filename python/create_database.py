@@ -1,26 +1,23 @@
-#create_database.py
-
-import json
+import os
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Enum, ForeignKey, Boolean
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
+from dotenv import load_dotenv
 import enum
 
-# Konfigurationen aus der JSON-Datei laden
-with open('db_conf.json') as config_file:
-    config = json.load(config_file)
+# Lade die Umgebungsvariablen aus der .env Datei
+load_dotenv()  # Diese Funktion lädt die Variablen aus der .env-Datei
 
-# MySQL-Datenbankverbindung herstellen
-db_type = config['db_type']
-username = config['username']
-password = config['password']
-host = config['host']
-port = config['port']
-database = config['database']
-echo = config['echo']
+# Hole die Umgebungsvariablen
+mysql_host = os.getenv('MYSQL_HOST', 'localhost')  # Standardmäßig 'localhost', falls nicht gesetzt
+mysql_user = os.getenv('MYSQL_USER', 'root')
+mysql_password = os.getenv('MYSQL_PASSWORD', 'root')
+mysql_database = os.getenv('MYSQL_DATABASE', 'mydatabase')
+mysql_port = int(os.getenv('MYSQL_PORT', 3306))
 
 # Verbindungsschema für MySQL
-url = f"{db_type}://{username}:{password}@{host}:{port}/{database}"
-engine = create_engine(url, echo=echo)
+db_type = "mysql+pymysql"
+url = f"{db_type}://{mysql_user}:{mysql_password}@{mysql_host}:{mysql_port}/{mysql_database}"
+engine = create_engine(url, echo=False)
 
 # Sitzung und Basis erstellen
 Session = sessionmaker(bind=engine)
@@ -57,3 +54,5 @@ class MinuteBar(Base):
 
 # Tabellen erstellen
 Base.metadata.create_all(engine)
+
+print("Tables created successfully")

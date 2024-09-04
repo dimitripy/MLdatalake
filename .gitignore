@@ -1,1 +1,6 @@
 *.json
+*.log
+/logs
+/mldatalake/database_data
+/venv
+.env
