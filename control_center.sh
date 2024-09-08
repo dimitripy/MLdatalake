@@ -1,15 +1,15 @@
 #!/bin/bash
-# manage_database.sh - Skript zur Verwaltung der MySQL-Datenbank ohne Docker Compose
+# control_center.sh - Skript zur Verwaltung von MLdatalake
 
 # Gemeinsame Funktionen einbinden
 source "$(dirname "${BASH_SOURCE[0]}")/Comms/common_functions.sh"
 
 # Verzeichnisse und Dateien definieren
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-HOST_DB_PATH="$SCRIPT_DIR/../database_data"
-CREATE_DB_SCRIPT="$SCRIPT_DIR/create_database.sh"  # Pfad zum create_database.sh Skript
-IMAGE_NAME="my-mysql-db"
-CONTAINER_NAME="my-mysql-container"
+HOST_DB_PATH="$SCRIPT_DIR/../mldatalake"  # Verzeichnisname entsprechend ändern
+CREATE_DB_SCRIPT="$SCRIPT_DIR/scripts/create_database.sh"  # Pfad zum create_database.sh Skript
+IMAGE_NAME="datalake"  # Docker-Image Name ändern
+CONTAINER_NAME="datalake"  # Docker-Container Name ändern
 ENV_FILE="$SCRIPT_DIR/.env"  # Pfad zur .env Datei
 
 # Definiere den Projektnamen für das Logging
@@ -109,6 +109,15 @@ case $choice in
             log "$PROJECT_NAME" "Datenbankerstellung und Initialisierung abgeschlossen."
         else
             log "$PROJECT_NAME" "Fehler: Das Skript $CREATE_DB_SCRIPT wurde nicht gefunden."
+        fi
+
+        INTEGRATION_SCRIPT="$SCRIPT_DIR/MLdatalake/Comms/integration.sh"
+        if [ -f "$INTEGRATION_SCRIPT" ]; then
+            bash "$INTEGRATION_SCRIPT"
+            log "$PROJECT_NAME" "Integration-Skript erfolgreich ausgeführt."
+        else
+            log "$PROJECT_NAME" "Fehler: Das Integration-Skript $INTEGRATION_SCRIPT wurde nicht gefunden."
+            echo "Das Integration-Skript konnte nicht gefunden werden."
         fi
         ;;
     3)
