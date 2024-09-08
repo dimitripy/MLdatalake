@@ -4,3 +4,4 @@
 /mldatalake/database_data
 /venv
 .env
+/config/key.txt

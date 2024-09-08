@@ -1,0 +1,58 @@
+GitHub Copilot: Verstanden. Wenn Sie keine automatische Validierung der Datenbank wünschen, können Sie die Überprüfung manuell durchführen. Hier sind einige Schritte, die Sie manuell ausführen können, um sicherzustellen, dass die Datenbank erfolgreich angelegt wurde und die Daten korrekt importiert wurden:
+
+### 1. Verbindung zur MySQL-Datenbank herstellen
+
+Sie können sich mit einem MySQL-Client wie `mysql` oder `MySQL Workbench` verbinden, um die Datenbank zu überprüfen.
+
+#### Beispiel mit `mysql`-Client:
+
+```bash
+mysql -u root -p -h localhost -P 3308
+```
+
+Geben Sie das Passwort ein, wenn Sie dazu aufgefordert werden.
+
+### 2. Datenbank auswählen und Tabellen anzeigen
+
+Nachdem Sie sich mit der Datenbank verbunden haben, können Sie die Datenbank auswählen und die Tabellen anzeigen:
+
+```sql
+USE mydatabase;
+SHOW TABLES;
+```
+
+### 3. Daten in der Tabelle anzeigen
+
+Um die Daten in der Tabelle `Symbol` anzuzeigen, können Sie eine einfache SQL-Abfrage ausführen:
+
+```sql
+SELECT * FROM Symbol LIMIT 10;
+```
+
+### 4. Überprüfen der Daten
+
+Überprüfen Sie die ausgegebenen Daten, um sicherzustellen, dass sie korrekt importiert wurden.
+
+### Beispiel für die manuelle Überprüfung:
+
+Hier ist ein Beispiel, wie Sie die Schritte manuell ausführen können:
+
+1. **Verbindung zur MySQL-Datenbank herstellen**:
+   ```bash
+   mysql -u root -p -h localhost -P 3308
+   ```
+
+2. **Datenbank auswählen und Tabellen anzeigen**:
+   ```sql
+   USE mydatabase;
+   SHOW TABLES;
+   ```
+
+3. **Daten in der Tabelle anzeigen**:
+   ```sql
+   SELECT * FROM Symbol LIMIT 10;
+   ```
+
+### Zusammenfassung
+
+Durch die manuelle Überprüfung können Sie sicherstellen, dass die Datenbank erfolgreich angelegt wurde und die Daten korrekt importiert wurden, ohne dass eine automatische Validierung im Airflow-DAG erforderlich ist.
