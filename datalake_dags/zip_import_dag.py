@@ -8,7 +8,7 @@ import yaml
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
-from create_database import Base, Symbol, Market
+from create_database import Symbol, Market
 
 default_args = {
     'owner': 'airflow',
