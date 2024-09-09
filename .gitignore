@@ -5,3 +5,4 @@
 /venv
 .env
 /config/key.txt
+/backups/trimmed_file.csv.zip

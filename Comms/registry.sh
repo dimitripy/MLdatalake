@@ -77,8 +77,12 @@ trigger_sync_dag() {
   fi
 }
 
+show_registry_path() {
+  echo "Der Pfad zur Registry-Datei ist: $REGISTRY_FILE"
+}
+
 # Überprüfen, ob die erforderlichen Argumente übergeben wurden
-if [ "$#" -ne 4 ];hen
+if [ "$#" -ne 4 ]; then
   echo "Usage: $0 <PROJECT_NAME> <DAG_PATH> <BACKUP_DIR> <API_KEY_FILE>"
   exit 1
 fi
@@ -88,3 +92,6 @@ register_in_registry "$1" "$2" "$3" "$4"
 
 # Trigger den Sync-DAG nach der Registrierung
 trigger_sync_dag
+
+# Zeige den Pfad zur Registry-Datei
+show_registry_path
