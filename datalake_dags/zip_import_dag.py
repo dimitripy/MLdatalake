@@ -1,130 +1,87 @@
+# Python
+
 from airflow import DAG
 from airflow.operators.python_operator import PythonOperator
-from datetime import datetime, timedelta
-import os
-import pandas as pd
-import zipfile
-import yaml
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from dotenv import load_dotenv
-from create_database import Symbol, Market
+from airflow.utils.dates import days_ago
+import mysql.connector
+import requests
+import json
+
+# Konfigurationsdaten aus JSON-Datei laden
+config_file_path = '/path/to/config.json'
+
+with open(config_file_path, 'r') as config_file:
+    config = json.load(config_file)
+
+db_user = config['db_user']
+db_password = config['db_password']
+db_host = config['db_host']
+db_name = config['db_name']
+colab_url = config['colab_url']
 
 default_args = {
     'owner': 'airflow',
     'depends_on_past': False,
-    'start_date': datetime(2023, 1, 1),
     'email_on_failure': False,
     'email_on_retry': False,
     'retries': 1,
-    'retry_delay': timedelta(minutes=5),
 }
 
 dag = DAG(
-    'import_data_dag',
+    'data_processing_dag',
     default_args=default_args,
-    description='A simple data import DAG',
-    schedule_interval=timedelta(days=1),
+    description='Ein DAG zum Starten eines Google Colab Notebooks zur Datenverarbeitung',
+    schedule_interval=None,
+    start_date=days_ago(1),
 )
 
-REGISTRY_FILE = '/etc/airflow/airflow_dag_registry.yaml'
-
-def load_registry_file():
-    with open(REGISTRY_FILE, 'r') as file:
-        registry = yaml.safe_load(file)
-    return registry
-
-def load_env_variables():
-    load_dotenv()
-    return {
-        'mysql_host': os.getenv('MYSQL_HOST', 'localhost'),
-        'mysql_user': os.getenv('MYSQL_USER', 'root'),
-        'mysql_password': os.getenv('MYSQL_PASSWORD', 'root'),
-        'mysql_database': os.getenv('MYSQL_DATABASE', 'mydatabase'),
-        'mysql_port': int(os.getenv('MYSQL_PORT', 3306))
-    }
-
-def create_db_engine(env_vars):
-    db_type = "mysql+pymysql"
-    url = f"{db_type}://{env_vars['mysql_user']}:{env_vars['mysql_password']}@{env_vars['mysql_host']}:{env_vars['mysql_port']}/{env_vars['mysql_database']}"
-    return create_engine(url, echo=False)
-
-def extract_zip(**kwargs):
-    registry = load_registry_file()
-    data_dir = registry['mldatalake']['data_dir']
-    zip_file_path = os.path.join(data_dir, 'data.zip')
-    extract_to = os.path.join(data_dir, 'extracted_data')
-    if not os.path.exists(extract_to):
-        os.makedirs(extract_to)
-    with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
-        zip_ref.extractall(extract_to)
-
-def read_csv(**kwargs):
-    registry = load_registry_file()
-    data_dir = registry['mldatalake']['data_dir']
-    csv_file_path = os.path.join(data_dir, 'extracted_data/data.csv')
-    df = pd.read_csv(csv_file_path)
-    return df
-
-def process_data(**kwargs):
-    ti = kwargs['ti']
-    df = ti.xcom_pull(task_ids='read_csv')
-    
-    # Datenaufbereitung
-    df = df.droplevel(1).reset_index().rename(columns={'index': 'ticker'})
-    df = df[df['ticker'].str.contains('usd')]
-    df['date'] = pd.to_datetime(df['time'], unit='ms')
-    df = df.sort_values(by=['date', 'ticker'])
-    df = df.drop(columns='time')
-    df = df.set_index(['date', 'ticker'])
-    # df = df['2021-07-01':'2021-12-31']
-    
-    df['active'] = df['active'].astype(bool)
-    df['market'] = df['market'].apply(lambda x: x.upper())
-    
-    ti.xcom_push(key='processed_data', value=df)
-
-def import_data_to_db(**kwargs):
-    ti = kwargs['ti']
-    df = ti.xcom_pull(task_ids='process_data', key='processed_data')
-    env_vars = load_env_variables()
-    engine = create_db_engine(env_vars)
-    Session = sessionmaker(bind=engine)
-    session = Session()
-    for index, row in df.iterrows():
-        symbol = Symbol(
-            ticker=row['ticker'],
-            name=row['name'],
-            market=Market[row['market']],
-            active=row['active']
+def check_db_connection():
+    try:
+        conn = mysql.connector.connect(
+            user=db_user,
+            password=db_password,
+            host=db_host,
+            database=db_name
         )
-        session.add(symbol)
-    session.commit()
+        conn.close()
+        print("Verbindung zur Datenbank erfolgreich.")
+    except mysql.connector.Error as err:
+        print(f"Fehler bei der Verbindung zur Datenbank: {err}")
+        raise
 
-extract_task = PythonOperator(
-    task_id='extract_zip',
-    python_callable=extract_zip,
+def trigger_colab_notebook(step):
+    response = requests.post(f"{colab_url}?step={step}")
+    if response.status_code == 200:
+        result = response.json()
+        if result.get('status') == 'success':
+            print(f"Google Colab Notebook Schritt '{step}' erfolgreich ausgeführt.")
+        else:
+            raise Exception(f"Fehler beim Ausführen des Google Colab Notebooks Schritt '{step}': {result.get('message')}")
+    else:
+        raise Exception(f"Fehler beim Starten des Google Colab Notebooks Schritt '{step}': {response.status_code}")
+
+check_db_task = PythonOperator(
+    task_id='check_db_connection',
+    python_callable=check_db_connection,
     dag=dag,
 )
 
-read_task = PythonOperator(
-    task_id='read_csv',
-    python_callable=read_csv,
+trigger_unzip_task = PythonOperator(
+    task_id='trigger_unzip_file',
+    python_callable=lambda: trigger_colab_notebook('unzip_file'),
     dag=dag,
 )
 
-process_task = PythonOperator(
-    task_id='process_data',
-    python_callable=process_data,
-    provide_context=True,
+trigger_process_data_task = PythonOperator(
+    task_id='trigger_process_data',
+    python_callable=lambda: trigger_colab_notebook('process_data'),
     dag=dag,
 )
 
-import_task = PythonOperator(
-    task_id='import_data_to_db',
-    python_callable=import_data_to_db,
-    provide_context=True,
+trigger_load_data_task = PythonOperator(
+    task_id='trigger_load_data',
+    python_callable=lambda: trigger_colab_notebook('load_data'),
     dag=dag,
 )
 
-extract_task >> read_task >> process_task >> import_task
+check_db_task >> trigger_unzip_task >> trigger_process_data_task >> trigger_load_data_task
