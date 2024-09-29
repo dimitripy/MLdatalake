@@ -50,7 +50,7 @@ case $choice in
     1)
         log "$PROJECT_NAME" "Starte Datenbankerstellung und Initialisierung..."
         # Führe das create_database.sh-Skript aus
-        bash "$SCRIPT_DIR/scripts/create_database.sh"
+        bash "$SCRIPT_DIR/customs/create_database.sh"
         ;;
     2)
         log "$PROJECT_NAME" "Erstelle config.json Datei..."
@@ -82,7 +82,7 @@ case $choice in
         log "$PROJECT_NAME" "Hard Reset wird durchgeführt..."
         cd "$COMPOSE_DIR"
         docker-compose down -v
-        bash "$SCRIPT_DIR/scripts/create_database.sh"
+        bash "$SCRIPT_DIR/customs/create_database.sh"
         docker-compose up -d
         ;;
     0)
