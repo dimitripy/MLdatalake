@@ -2,13 +2,13 @@
 # control_center.sh - Skript zur Verwaltung von MLdatalake
 
 # Gemeinsame Funktionen einbinden
-source "$(dirname "${BASH_SOURCE[0]}")/Comms/common_functions.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/comms/common_functions.sh"
 
 # Verzeichnisse und Dateien definieren
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-COMPOSE_DIR="$SCRIPT_DIR/../"  # Verzeichnis mit der docker-compose.yml
+COMPOSE_DIR="$SCRIPT_DIR/mldatalake"  # Verzeichnis mit der docker-compose.yml
 ENV_FILE="$SCRIPT_DIR/.env"  # Pfad zur .env Datei
-CONFIG_FILE="$SCRIPT_DIR/../datalake_dags/config.json"  # Pfad zur config.json Datei
+CONFIG_FILE="$SCRIPT_DIR/dags/latest/config.json"  # Pfad zur config.json Datei
 
 # Definiere den Projektnamen für das Logging
 PROJECT_NAME="mldatalake"
@@ -28,11 +28,18 @@ create_config_json() {
     "db_user": "$MYSQL_USER",
     "db_password": "$MYSQL_PASSWORD",
     "db_host": "localhost",
-    "db_name": "$MYSQL_DATABASE",
-    "colab_url": "$COLAB_URL"
+    "db_name": "$MYSQL_DATABASE"
 }
 EOF
     echo "config.json Datei wurde erfolgreich erstellt unter $CONFIG_FILE"
+}
+
+# Funktion zum Löschen der config.json Datei
+delete_config_json() {
+    if [ -f "$CONFIG_FILE" ]; then
+        rm "$CONFIG_FILE"
+        echo "Alte config.json Datei wurde gelöscht."
+    fi
 }
 
 # Menü für Benutzerinteraktion
@@ -48,6 +55,8 @@ echo "0 - Beenden"
 read -p "Eingabe: " choice
 case $choice in
     1)
+        log "$PROJECT_NAME" "Erstelle config.json Datei..."
+        create_config_json
         log "$PROJECT_NAME" "Starte Datenbankerstellung und Initialisierung..."
         # Führe das create_database.sh-Skript aus
         bash "$SCRIPT_DIR/customs/create_database.sh"
@@ -82,6 +91,10 @@ case $choice in
         log "$PROJECT_NAME" "Hard Reset wird durchgeführt..."
         cd "$COMPOSE_DIR"
         docker-compose down -v
+        log "$PROJECT_NAME" "Lösche alte config.json Datei..."
+        delete_config_json
+        log "$PROJECT_NAME" "Erstelle neue config.json Datei..."
+        create_config_json
         bash "$SCRIPT_DIR/customs/create_database.sh"
         docker-compose up -d
         ;;

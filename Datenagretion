@@ -1,0 +1,25 @@
+INSERT INTO five_minute_bar (date, open, high, low, close, volume, symbol_id)
+SELECT 
+    DATE_FORMAT(date, '%Y-%m-%d %H:%i:00') AS interval,
+    MIN(open) AS open,
+    MAX(high) AS high,
+    MIN(low) AS low,
+    MAX(close) AS close,
+    SUM(volume) AS volume,
+    symbol_id
+FROM minute_bar
+GROUP BY symbol_id, interval
+HAVING MINUTE(interval) % 5 = 0;
+
+INSERT INTO thirty_minute_bar (date, open, high, low, close, volume, symbol_id)
+SELECT 
+    DATE_FORMAT(date, '%Y-%m-%d %H:%i:00') AS interval,
+    MIN(open) AS open,
+    MAX(high) AS high,
+    MIN(low) AS low,
+    MAX(close) AS close,
+    SUM(volume) AS volume,
+    symbol_id
+FROM minute_bar
+GROUP BY symbol_id, interval
+HAVING MINUTE(interval) % 30 = 0;
