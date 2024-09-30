@@ -9,7 +9,7 @@ load_dotenv()  # Diese Funktion lädt die Variablen aus der .env-Datei
 mysql_host = os.getenv('MYSQL_HOST', 'localhost')  # Standardmäßig 'localhost', falls nicht gesetzt
 mysql_user = os.getenv('MYSQL_USER', 'root')
 mysql_password = os.getenv('MYSQL_PASSWORD', 'root')
-mysql_database = os.getenv('MYSQL_DATABASE', 'mydatabase')
+mysql_database = os.getenv('MYSQL_DATABASE', 'mldatalake')
 mysql_port = int(os.getenv('MYSQL_PORT', 3306))
 
 # Ausgabe der geladenen Umgebungsvariablen

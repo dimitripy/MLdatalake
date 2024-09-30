@@ -17,7 +17,7 @@ Geben Sie das Passwort ein, wenn Sie dazu aufgefordert werden.
 Nachdem Sie sich mit der Datenbank verbunden haben, können Sie die Datenbank auswählen und die Tabellen anzeigen:
 
 ```sql
-USE mydatabase;
+USE mldatalake;
 SHOW TABLES;
 ```
 
@@ -44,7 +44,7 @@ Hier ist ein Beispiel, wie Sie die Schritte manuell ausführen können:
 
 2. **Datenbank auswählen und Tabellen anzeigen**:
    ```sql
-   USE mydatabase;
+   USE mldatalake;
    SHOW TABLES;
    ```
 

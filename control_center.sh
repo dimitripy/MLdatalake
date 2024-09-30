@@ -25,7 +25,7 @@ PROJECT_NAME="mldatalake"
 
 # Lade die Umgebungsvariablen aus der .env Datei
 echo "Pfad zur .env Datei: $ENV_FILE"
-if [ -f "$ENV_FILE" ];hen
+if [ -f "$ENV_FILE" ]; then
     export $(grep -v '^#' "$ENV_FILE" | xargs)
 else
     echo "Fehler: Die .env Datei wurde nicht gefunden."
@@ -50,10 +50,20 @@ EOF
 
 # Funktion zum Löschen der config.json Datei
 delete_config_json() {
-    if [ -f "$CONFIG_FILE" ];hen
+    if [ -f "$CONFIG_FILE" ]; then
         rm "$CONFIG_FILE"
         echo "Alte config.json Datei wurde gelöscht."
     fi
+}
+
+# Funktion zum Löschen aller benutzerdefinierten Datenbanken
+delete_all_databases() {
+    docker exec -i datalake mysql -u root -p"$MYSQL_ROOT_PASSWORD" <<EOF
+    SET FOREIGN_KEY_CHECKS = 0;
+    $(docker exec -i datalake mysql -u root -p"$MYSQL_ROOT_PASSWORD" -e "SHOW DATABASES;" | grep -Ev "(Database|information_schema|mysql|performance_schema|sys)" | awk '{print "DROP DATABASE " $1 ";"}')
+    SET FOREIGN_KEY_CHECKS = 1;
+EOF
+    echo "Alle benutzerdefinierten Datenbanken wurden gelöscht."
 }
 
 # Initialisierungsfunktion
@@ -61,7 +71,7 @@ initialize_project() {
     log "$PROJECT_NAME" "Starte Initialisierung des Projekts..."
 
     # Registriere in der zentralen Registry und trigger den Sync-DAG
-    if [ -f "$INTEGRATION_SCRIPT" ];hen
+    if [ -f "$INTEGRATION_SCRIPT" ]; then
         bash "$INTEGRATION_SCRIPT" "$PROJECT_NAME" \
             "dag_path=$DAGS_DIR"
     else
@@ -110,27 +120,36 @@ case $choice in
     8)
         echo -e "\e[41m\e[97mWARNUNG: Dies wird den Container und alle Daten des Projekts löschen!\e[0m"
         read -p "Möchtest du wirklich fortfahren? (yes/no): " confirmation
-        if [ "$confirmation" == "yes" ];hen
+        if [ "$confirmation" == "yes" ]; then
             log "$PROJECT_NAME" "Lösche den Container und die Daten des Projekts..."
             cd "$COMPOSE_DIR"
             docker-compose down -v  # -v entfernt auch die Volumes
+            delete_all_databases
             log "$PROJECT_NAME" "Container und Daten wurden erfolgreich gelöscht."
         else
             log "$PROJECT_NAME" "Löschung des Containers und der Daten abgebrochen."
         fi
         ;;
     9)
-        log "$PROJECT_NAME" "Hard Reset wird durchgeführt..."
-        cd "$COMPOSE_DIR"
-        docker-compose down -v
-        log "$PROJECT_NAME" "Lösche alte config.json Datei..."
-        delete_config_json
-        log "$PROJECT_NAME" "Erstelle neue config.json Datei..."
-        create_config_json
-        bash "$CREATE_DB_SCRIPT"
-        # Initialisiere das Projekt
-        initialize_project
-        docker-compose up -d
+        echo -e "\e[41m\e[97mWARNUNG: Dies wird den Container und alle Daten des Projekts löschen!\e[0m"
+        read -p "Möchtest du wirklich fortfahren? (yes/no): " confirmation
+        if [ "$confirmation" == "yes" ]; then
+            log "$PROJECT_NAME" "Hard Reset wird durchgeführt..."
+            cd "$COMPOSE_DIR"
+            docker-compose down -v  # -v entfernt auch die Volumes
+            delete_all_databases
+            log "$PROJECT_NAME" "Container und Daten wurden erfolgreich gelöscht."
+            log "$PROJECT_NAME" "Lösche alte config.json Datei..."
+            delete_config_json
+            log "$PROJECT_NAME" "Erstelle neue config.json Datei..."
+            create_config_json
+            bash "$CREATE_DB_SCRIPT"
+            # Initialisiere das Projekt
+            initialize_project
+            docker-compose up -d
+        else
+            log "$PROJECT_NAME" "Hard Reset abgebrochen."
+        fi
         ;;
     0)
         echo "Beenden..."
@@ -140,3 +159,4 @@ case $choice in
         echo "Ungültige Eingabe. Bitte wähle eine gültige Option."
         ;;
 esac
+mysql -u root -p < docker-entrypoint-initdb.d/init.sql
