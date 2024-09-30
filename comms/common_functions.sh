@@ -1,10 +1,9 @@
 #!/bin/bash
-# common_functions.sh
 
 # log() Funktion mit dynamischem Log-Verzeichnis
 log() {
-    local project_name=$1
-    local message=$2
+    local project_name="$1"
+    local message="$2"
 
     # Erstelle ein Log-Verzeichnis basierend auf dem Projektnamen
     local log_dir="$(pwd)/logs/$project_name"

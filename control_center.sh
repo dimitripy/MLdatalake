@@ -1,20 +1,31 @@
 #!/bin/bash
 # control_center.sh - Skript zur Verwaltung von MLdatalake
 
+# Überprüfen, ob das Skript als Root-Benutzer ausgeführt wird
+if [ "$EUID" -ne 0 ]; then
+  echo "Bitte führen Sie dieses Skript als Root-Benutzer aus."
+  exit 1
+fi
+
 # Gemeinsame Funktionen einbinden
 source "$(dirname "${BASH_SOURCE[0]}")/comms/common_functions.sh"
 
 # Verzeichnisse und Dateien definieren
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-COMPOSE_DIR="$SCRIPT_DIR/mldatalake"  # Verzeichnis mit der docker-compose.yml
+COMPOSE_DIR="$SCRIPT_DIR/"  # Verzeichnis mit der docker-compose.yml
 ENV_FILE="$SCRIPT_DIR/.env"  # Pfad zur .env Datei
 CONFIG_FILE="$SCRIPT_DIR/dags/latest/config.json"  # Pfad zur config.json Datei
+CONFIG_DIR="$(dirname "$CONFIG_FILE")"  # Verzeichnis der config.json Datei
+CREATE_DB_SCRIPT="$SCRIPT_DIR/customs/create_database.sh"  # Pfad zum create_database.sh Skript
+INTEGRATION_SCRIPT="$SCRIPT_DIR/comms/intigration.sh"  # Pfad zum intigration.sh Skript
+DAGS_DIR="$SCRIPT_DIR/dags"  # Pfad zu den DAGs
 
 # Definiere den Projektnamen für das Logging
 PROJECT_NAME="mldatalake"
 
 # Lade die Umgebungsvariablen aus der .env Datei
-if [ -f "$ENV_FILE" ]; then
+echo "Pfad zur .env Datei: $ENV_FILE"
+if [ -f "$ENV_FILE" ];hen
     export $(grep -v '^#' "$ENV_FILE" | xargs)
 else
     echo "Fehler: Die .env Datei wurde nicht gefunden."
@@ -23,6 +34,9 @@ fi
 
 # Funktion zum Erstellen der config.json Datei
 create_config_json() {
+    # Stelle sicher, dass das Verzeichnis existiert
+    mkdir -p "$CONFIG_DIR"
+    
     cat <<EOF > "$CONFIG_FILE"
 {
     "db_user": "$MYSQL_USER",
@@ -36,10 +50,26 @@ EOF
 
 # Funktion zum Löschen der config.json Datei
 delete_config_json() {
-    if [ -f "$CONFIG_FILE" ]; then
+    if [ -f "$CONFIG_FILE" ];hen
         rm "$CONFIG_FILE"
         echo "Alte config.json Datei wurde gelöscht."
     fi
+}
+
+# Initialisierungsfunktion
+initialize_project() {
+    log "$PROJECT_NAME" "Starte Initialisierung des Projekts..."
+
+    # Registriere in der zentralen Registry und trigger den Sync-DAG
+    if [ -f "$INTEGRATION_SCRIPT" ];hen
+        bash "$INTEGRATION_SCRIPT" "$PROJECT_NAME" \
+            "dag_path=$DAGS_DIR"
+    else
+        echo "intigration.sh Skript nicht gefunden unter $INTEGRATION_SCRIPT"
+        exit 1
+    fi
+
+    log "$PROJECT_NAME" "Initialisierung des Projekts abgeschlossen."
 }
 
 # Menü für Benutzerinteraktion
@@ -57,9 +87,11 @@ case $choice in
     1)
         log "$PROJECT_NAME" "Erstelle config.json Datei..."
         create_config_json
-        log "$PROJECT_NAME" "Starte Datenbankerstellung und Initialisierung..."
         # Führe das create_database.sh-Skript aus
-        bash "$SCRIPT_DIR/customs/create_database.sh"
+        bash "$CREATE_DB_SCRIPT"
+        # Initialisiere das Projekt
+        initialize_project
+        log "$PROJECT_NAME" "Starte Datenbankerstellung und Initialisierung..."
         ;;
     2)
         log "$PROJECT_NAME" "Erstelle config.json Datei..."
@@ -78,7 +110,7 @@ case $choice in
     8)
         echo -e "\e[41m\e[97mWARNUNG: Dies wird den Container und alle Daten des Projekts löschen!\e[0m"
         read -p "Möchtest du wirklich fortfahren? (yes/no): " confirmation
-        if [ "$confirmation" == "yes" ]; then
+        if [ "$confirmation" == "yes" ];hen
             log "$PROJECT_NAME" "Lösche den Container und die Daten des Projekts..."
             cd "$COMPOSE_DIR"
             docker-compose down -v  # -v entfernt auch die Volumes
@@ -95,7 +127,9 @@ case $choice in
         delete_config_json
         log "$PROJECT_NAME" "Erstelle neue config.json Datei..."
         create_config_json
-        bash "$SCRIPT_DIR/customs/create_database.sh"
+        bash "$CREATE_DB_SCRIPT"
+        # Initialisiere das Projekt
+        initialize_project
         docker-compose up -d
         ;;
     0)
