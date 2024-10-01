@@ -1,10 +1,15 @@
-#import_to_db.py
 import os
+import sys
 import json
 import pandas as pd
 import numpy as np
+import yaml
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+
+# Fügen Sie den Pfad zu `create_database.py` hinzu
+sys.path.append('/opt/airflow/dags/mldatalake/latest/modules')
+
 from create_database import Symbol, Market, MinuteBar
 
 # Lade die Konfigurationsdatei
@@ -58,15 +63,35 @@ def process_and_insert_data(session, bars1m, symbol_filter=None):
         session.bulk_insert_mappings(MinuteBar, bars.to_dict(orient='records'))
         session.commit()
 
-def main(config_file_path):
+def main():
     try:
-        config = load_config(config_file_path)
+        # Pfad zur config.json Datei
+        config_path = '/opt/airflow/dags/mldatalake/latest/config.json'
+        
+        # Einlesen der Konfigurationsdatei
+        config = load_config(config_path)
+        
+        # Pfad zur Registry-Datei
+        registry_file_path = '/etc/airflow/airflow_dag_registry.yaml'
+        
+        # Einlesen der Registry-Datei
+        with open(registry_file_path, 'r') as registry_file:
+            registry = yaml.safe_load(registry_file)
+        
+        # Extrahieren des Pfades aus der Registry-Datei
+        registry_path = registry['path_to_registry']
+        
+        # Erstellen des vollständigen Pfades zur ZIP-Datei
+        zip_file_name = config['zip_file_name']
+        output_csv_path = os.path.join(registry_path, f"{zip_file_name}.csv")
+        
+        # Erstellen der Datenbank-Engine
         engine = create_db_engine(config)
         Session = sessionmaker(bind=engine)
         session = Session()
 
-        csv_file_path = './gespeicherter_dataframe.csv'
-        bars1m = load_data_from_csv(csv_file_path)
+        # Laden der Daten aus der CSV-Datei
+        bars1m = load_data_from_csv(output_csv_path)
         
         # Optional: Filter für ein bestimmtes Symbol setzen
         symbol_filter = None  # Beispiel: Nur Daten für BTCUSD importieren, setze symbol_filter = "btcusd"
@@ -77,8 +102,4 @@ def main(config_file_path):
         print(f"An error occurred: {e}")
 
 if __name__ == "__main__":
-    import sys
-    if len(sys.argv) < 2:
-        print("Usage: python import_to_db.py <config_file_path>")
-        sys.exit(1)
-    main(sys.argv[1])
+    main()
