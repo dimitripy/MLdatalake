@@ -1,9 +1,13 @@
 import os
 import json
+import pandas as pd
+import numpy as np
+import yaml
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Enum, ForeignKey, Boolean
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 import enum
 import subprocess
+import sys
 
 # Überprüfen und installieren Sie pymysql, falls es nicht vorhanden ist
 def ensure_pymysql_installed():
@@ -83,18 +87,33 @@ class ThirtyMinuteBar(Base):
     symbol_id = Column(Integer, ForeignKey('symbol.id', ondelete="CASCADE"), nullable=False)
     symbol = relationship('Symbol', backref='thirty_minute_bars')
 
-def main(config_file_path):
-    config = load_config(config_file_path)
-    engine = create_db_engine(config)
-    Base.metadata.create_all(engine)
-    print("Tables created successfully")
+def main():
+    try:
+        # Pfad zur config.json Datei
+        config_path = '/opt/airflow/dags/mldatalake/latest/config.json'
+        
+        # Einlesen der Konfigurationsdatei
+        config = load_config(config_path)
+        
+        # Pfad zur Registry-Datei
+        registry_file_path = '/etc/airflow/airflow_dag_registry.yaml'
+        
+        # Einlesen der Registry-Datei
+        with open(registry_file_path, 'r') as registry_file:
+            registry = yaml.safe_load(registry_file)
+        
+        # Extrahieren des Pfades aus der Registry-Datei
+        registry_path = registry['path_to_registry']
+        
+        # Erstellen der Datenbank-Engine
+        engine = create_db_engine(config)
+        Base.metadata.create_all(engine)
+        print("Tables created successfully")
+    except Exception as e:
+        print(f"An error occurred: {e}")
 
 if __name__ == "__main__":
-    import sys
-    if len(sys.argv) < 2:
-        print("Usage: python create_database.py <config_file_path>")
-        sys.exit(1)
-    main(sys.argv[1])
+    main()
 
 # Exportieren der Klassen
 __all__ = ['Symbol', 'Market', 'MinuteBar']
