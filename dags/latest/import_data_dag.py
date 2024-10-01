@@ -1,133 +1,151 @@
 from airflow import DAG
+from airflow.operators.bash_operator import BashOperator
 from airflow.operators.python_operator import PythonOperator
-from datetime import datetime
-import sys
+from datetime import datetime, timedelta
 import os
-import yaml  # Importieren des yaml-Moduls
+import sys
 import json
-from airflow.utils.log.logging_mixin import LoggingMixin
-import subprocess
+import yaml
+import pandas as pd
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
-# Verwende den Airflow-Logger
-log = LoggingMixin().log
+# Pfad zur Registry-Datei
+REGISTRY_FILE = '/etc/airflow/airflow_dag_registry.yaml'
 
-# Fügen Sie das Verzeichnis zum Python-Pfad hinzu
-sys.path.append(os.path.join(os.path.dirname(__file__), 'modules'))
-import create_database
-import extract_and_save_csv
-import import_to_db
 
-# Überprüfen und installieren Sie pymysql, falls es nicht vorhanden ist
-def ensure_pymysql_installed():
-    try:
-        import pymysql
-        log.info("pymysql ist bereits installiert.")
-    except ImportError:
-        log.info("pymysql ist nicht installiert. Installation wird durchgeführt...")
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "pymysql"])
-        log.info("pymysql wurde erfolgreich installiert.")
+# Lade die Registry-Datei und extrahiere den Pfad zu den Modulen
+def load_registry():
+    if not os.path.exists(REGISTRY_FILE):
+        raise FileNotFoundError(f"Registry-Datei nicht gefunden: {REGISTRY_FILE}")
+    
+    with open(REGISTRY_FILE, 'r') as file:
+        registry = yaml.safe_load(file) or {}
+    return registry
 
+registry = load_registry()
+DAG_PATH = registry['projects']['mldatalake']['dag_path']
+
+# Fügen Sie den Pfad zu den Modulen hinzu
+
+from create_database import Symbol, Market, MinuteBar
+
+# Standardargumente für den DAG
 default_args = {
     'owner': 'airflow',
     'depends_on_past': False,
     'start_date': datetime(2023, 1, 1),
+    'email_on_failure': False,
+    'email_on_retry': False,
     'retries': 1,
+    'retry_delay': timedelta(minutes=5),
 }
 
-dag = DAG(
-    'upload_crypto_data',
-    default_args=default_args,
-    description='A simple crypto data pipeline',
-    schedule_interval='@daily',
-    catchup=False,  # Deaktiviert das Nachholen verpasster Ausführungen
-    max_active_runs=1,  # Beschränkt die Anzahl der gleichzeitig aktiven DAG-Runs
-    tags=['PUT DB'],
-)
-
-REGISTRY_FILE = '/etc/airflow/airflow_dag_registry.yaml'
-
-def load_registry():
-    if not os.path.exists(REGISTRY_FILE):
-        log.error(f"Registry-Datei nicht gefunden: {REGISTRY_FILE}")
-        return {}
-    
-    with open(REGISTRY_FILE, 'r') as file:
-        registry = yaml.safe_load(file) or {}
-    log.info("Registry erfolgreich geladen.")
-    return registry
+# Pfade zu den Skripten und Dateien
+CONFIG_FILE = DAG_PATH +'/latest/config.json'
+SOURCE_DIR = os.path.join(DAG_PATH, 'source')
+ZIP_FILE_NAME = 'trimmed_file'
+ZIP_FILE_PATH = os.path.join(SOURCE_DIR, f"{ZIP_FILE_NAME}.zip")
+OUTPUT_CSV_PATH = os.path.join(SOURCE_DIR, f"{ZIP_FILE_NAME}.csv")
 
 # Lade die Konfigurationsdatei
 def load_config(config_file_path):
-    if not os.path.exists(config_file_path):
-        log.error(f"Konfigurationsdatei nicht gefunden: {config_file_path}")
-        raise FileNotFoundError(f"Konfigurationsdatei nicht gefunden: {config_file_path}")
-    
     with open(config_file_path, 'r') as file:
         config = json.load(file)
-    log.info("Konfigurationsdatei erfolgreich geladen.")
     return config
 
-config_file_path = os.path.join(os.path.dirname(__file__), 'config.json')
-config = load_config(config_file_path)
+# Verbindungsschema für MySQL
+def create_db_engine(config):
+    db_type = "mysql+pymysql"
+    url = f"{db_type}://{config['db_user']}:{config['db_password']}@{config['db_host']}:{config['db_port']}/{config['db_name']}"
+    return create_engine(url, echo=False)
 
-def run_create_database(config_file_path):
-    log.info("Starte Datenbankerstellung...")
-    create_database.main(config_file_path)
-    log.info("Datenbankerstellung abgeschlossen.")
+# Lade die Daten aus der CSV-Datei
+def load_data_from_csv(csv_file_path):
+    bars1m = pd.read_csv(csv_file_path, index_col=['date', 'ticker'])
+    bars1m.index = pd.to_datetime(bars1m.index.get_level_values('date'))
+    bars1m = bars1m.sort_values(by=['date', 'ticker'])
+    return bars1m
 
-def run_extract_and_save_csv():
-    log.info("Starte Extraktion und Speicherung der CSV-Datei...")
-    # Lesen Sie den Pfad zum source-Verzeichnis aus der Registry
-    registry = load_registry()
+# Verarbeite und füge die Daten in die Datenbank ein
+def process_and_insert_data(session, bars1m, symbol_filter=None):
+    if symbol_filter:
+        bars1m = bars1m.query(f'ticker == "{symbol_filter}"')
     
-    source_directory = registry.get('projects', {}).get('mldatalake', {}).get('source_path')
+    # Resample auf 1-Minuten-Intervalle
+    bars1m = bars1m.reset_index().set_index('date').groupby('ticker').resample('1min').last().droplevel(0)
+    bars1m.loc[:, bars1m.columns[:-1]] = bars1m[bars1m.columns[:-1]].ffill()
+    bars1m.loc[:, 'volume'] = bars1m['volume'].fillna(value=0.0)
+    bars1m = bars1m.reset_index().sort_values(by=['date', 'ticker']).set_index(['date', 'ticker'])
     
-    if not source_directory:
-        log.error("Source directory not found in registry")
-        raise ValueError("Source directory not found in registry")
-
-    # Laden Sie den Namen der ZIP-Datei aus der Konfigurationsdatei
-    zip_file_name = config.get('zip_file_name')
+    tickers = bars1m.index.get_level_values(1).unique()
+    latest_date = bars1m.index.get_level_values('date').max()
+    active_tickers = bars1m.loc[latest_date].index.get_level_values('ticker').unique()
     
-    if not zip_file_name:
-        log.error("ZIP file name not found in config")
-        raise ValueError("ZIP file name not found in config")
-
-    zip_file_path = os.path.join(source_directory, f"{zip_file_name}.zip")
-    output_csv_path = os.path.join(source_directory, f"{zip_file_name}.csv")
+    symbols = pd.DataFrame(tickers, columns=['ticker'])
+    symbols['name'] = symbols['ticker']
+    symbols['market'] = 'crypto'
+    symbols['active'] = np.where(symbols['ticker'].isin(active_tickers), True, False)
+    symbols = symbols.sort_values(by='ticker')
     
-    extract_and_save_csv.extract_and_save_csv(zip_file_path, output_csv_path)
-    log.info("Extraktion und Speicherung der CSV-Datei abgeschlossen.")
+    total_symbols = len(symbols)
+    for i, r in symbols.iterrows():
+        print(f"Uploading symbol {i+1}/{total_symbols}: {r['ticker']}")
+        
+        symbol = Symbol(ticker=r['ticker'], name=r['name'], market=Market[r['market']], active=r['active'])
+        session.add(symbol)
+        session.commit()
+        
+        bars = bars1m.xs(r['ticker']).reset_index()
+        bars['symbol_id'] = symbol.id
+        
+        session.bulk_insert_mappings(MinuteBar, bars.to_dict(orient='records'))
+        session.commit()
 
-def run_import_to_db(config_file_path):
-    log.info("Starte Import in die Datenbank...")
-    import_to_db.main(config_file_path)
-    log.info("Import in die Datenbank abgeschlossen.")
+# Hauptfunktion zum Importieren der Daten
+def import_data():
+    try:
+        # Einlesen der Konfigurationsdatei
+        config = load_config(CONFIG_FILE)
+        
+        # Erstellen der Datenbank-Engine
+        engine = create_db_engine(config)
+        Session = sessionmaker(bind=engine)
+        session = Session()
 
-ensure_pymysql_task = PythonOperator(
-    task_id='ensure_pymysql_installed',
-    python_callable=ensure_pymysql_installed,
-    dag=dag,
-)
+        # Laden der Daten aus der CSV-Datei
+        bars1m = load_data_from_csv(OUTPUT_CSV_PATH)
+        
+        # Optional: Filter für ein bestimmtes Symbol setzen
+        symbol_filter = None  # Beispiel: Nur Daten für BTCUSD importieren, setze symbol_filter = "btcusd"
+        process_and_insert_data(session, bars1m, symbol_filter)
 
-create_db_task = PythonOperator(
-    task_id='create_database',
-    python_callable=run_create_database,
-    op_args=[config_file_path],
-    dag=dag,
-)
+        print("Data imported successfully")
+    except Exception as e:
+        print(f"An error occurred: {e}")
 
-extract_task = PythonOperator(
-    task_id='extract_and_save_csv',
-    python_callable=run_extract_and_save_csv,
-    dag=dag,
-)
+# Definition des DAGs
+with DAG(
+    'import_data_dag',
+    default_args=default_args,
+    description='Ein DAG zum Importieren von Daten in die Datenbank',
+    schedule_interval=timedelta(days=1),
+    catchup=False,
+    max_active_runs=1,  
+    tags=['PUT DB'],
+) as dag:
 
-import_task = PythonOperator(
-    task_id='import_to_db',
-    python_callable=run_import_to_db,
-    op_args=[config_file_path],
-    dag=dag,
-)
+    # Task zum Extrahieren der Daten aus der ZIP-Datei und Speichern in einer CSV-Datei
+    extract_and_save_csv = BashOperator(
+        task_id='extract_and_save_csv',
+        bash_command=f'python {DAG_PATH}/latest/extract_and_save_csv.py'
+    )
 
-ensure_pymysql_task >> create_db_task >> extract_task >> import_task
+    # Task zum Importieren der Daten in die Datenbank
+    import_data_task = PythonOperator(
+        task_id='import_data',
+        python_callable=import_data
+    )
+
+    # Task-Abhängigkeiten definieren
+    extract_and_save_csv >> import_data_task

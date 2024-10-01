@@ -6,3 +6,4 @@
 .env
 /config/key.txt
 /source/trimmed_file.zip
+*/pyc

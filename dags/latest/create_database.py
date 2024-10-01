@@ -95,16 +95,6 @@ def main():
         # Einlesen der Konfigurationsdatei
         config = load_config(config_path)
         
-        # Pfad zur Registry-Datei
-        registry_file_path = '/etc/airflow/airflow_dag_registry.yaml'
-        
-        # Einlesen der Registry-Datei
-        with open(registry_file_path, 'r') as registry_file:
-            registry = yaml.safe_load(registry_file)
-        
-        # Extrahieren des Pfades aus der Registry-Datei
-        registry_path = registry['path_to_registry']
-        
         # Erstellen der Datenbank-Engine
         engine = create_db_engine(config)
         Base.metadata.create_all(engine)
