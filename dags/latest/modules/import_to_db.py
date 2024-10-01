@@ -1,8 +1,8 @@
 #import_to_db.py
-
 import os
 import json
 import pandas as pd
+import numpy as np
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from create_database import Symbol, Market, MinuteBar
@@ -15,7 +15,7 @@ def load_config(config_file_path):
 
 def create_db_engine(config):
     db_type = "mysql+pymysql"
-    url = f"{db_type}://{config['db_user']}:{config['db_password']}@{config['db_host']}/{config['db_name']}"
+    url = f"{db_type}://{config['db_user']}:{config['db_password']}@{config['db_host']}:{config['db_port']}/{config['db_name']}"
     return create_engine(url, echo=False)
 
 def load_data_from_csv(csv_file_path):
@@ -78,4 +78,7 @@ def main(config_file_path):
 
 if __name__ == "__main__":
     import sys
+    if len(sys.argv) < 2:
+        print("Usage: python import_to_db.py <config_file_path>")
+        sys.exit(1)
     main(sys.argv[1])

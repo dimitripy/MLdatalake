@@ -19,6 +19,7 @@ CONFIG_DIR="$(dirname "$CONFIG_FILE")"  # Verzeichnis der config.json Datei
 CREATE_DB_SCRIPT="$SCRIPT_DIR/customs/create_database.sh"  # Pfad zum create_database.sh Skript
 INTEGRATION_SCRIPT="$SCRIPT_DIR/comms/intigration.sh"  # Pfad zum intigration.sh Skript
 DAGS_DIR="$SCRIPT_DIR/dags"  # Pfad zu den DAGs
+SOURCE_DIR="$SCRIPT_DIR/source"  # Pfad zum source Verzeichnis
 
 # Definiere den Projektnamen für das Logging
 PROJECT_NAME="mldatalake"
@@ -41,8 +42,10 @@ create_config_json() {
 {
     "db_user": "$MYSQL_USER",
     "db_password": "$MYSQL_PASSWORD",
-    "db_host": "localhost",
-    "db_name": "$MYSQL_DATABASE"
+    "db_host": "datalake",
+    "db_port": 3306,
+    "db_name": "$MYSQL_DATABASE",
+    "zip_file_name": "trimmed_file"
 }
 EOF
     echo "config.json Datei wurde erfolgreich erstellt unter $CONFIG_FILE"
@@ -73,7 +76,9 @@ initialize_project() {
     # Registriere in der zentralen Registry und trigger den Sync-DAG
     if [ -f "$INTEGRATION_SCRIPT" ]; then
         bash "$INTEGRATION_SCRIPT" "$PROJECT_NAME" \
-            "dag_path=$DAGS_DIR"
+            "dag_path=$DAGS_DIR" \
+            "source_path=$SOURCE_DIR"
+
     else
         echo "intigration.sh Skript nicht gefunden unter $INTEGRATION_SCRIPT"
         exit 1
@@ -82,12 +87,19 @@ initialize_project() {
     log "$PROJECT_NAME" "Initialisierung des Projekts abgeschlossen."
 }
 
+# Funktion zum Verbinden der Airflow-Container mit dem mldatalake_default-Netzwerk
+connect_network() {
+    docker network connect mlscope_default datalake
+    echo "MySQL-Container wurde mit dem mlscope_default-Netzwerk verbunden."
+}
+
 # Menü für Benutzerinteraktion
 echo "Bitte wähle eine Option:"
 echo "1 - Datenbank erstellen und initialisieren"
 echo "2 - config.json Datei erstellen"
 echo "3 - Starten oder Neustarten des Docker-Containers"
 echo "5 - Stoppen des Docker-Containers"
+echo "6 - Registry-Datei aktualisieren"
 echo "8 - Lösche den Container und die Daten des Projekts"
 echo "9 - Hard Reset (alles löschen und neu erstellen)"
 echo "0 - Beenden"
@@ -96,12 +108,13 @@ read -p "Eingabe: " choice
 case $choice in
     1)
         log "$PROJECT_NAME" "Erstelle config.json Datei..."
-        create_config_json
         # Führe das create_database.sh-Skript aus
         bash "$CREATE_DB_SCRIPT"
+        connect_network
+        create_config_json
         # Initialisiere das Projekt
-        initialize_project
         log "$PROJECT_NAME" "Starte Datenbankerstellung und Initialisierung..."
+        initialize_project
         ;;
     2)
         log "$PROJECT_NAME" "Erstelle config.json Datei..."
@@ -111,11 +124,18 @@ case $choice in
         log "$PROJECT_NAME" "Starten oder Neustarten des Docker-Containers..."
         cd "$COMPOSE_DIR"
         docker-compose up -d
+        log "$PROJECT_NAME" "Erstelle config.json Datei nach dem Starten des Containers..."
+        create_config_json
+        connect_network
         ;;
     5)
         log "$PROJECT_NAME" "Stoppen des Docker-Containers..."
         cd "$COMPOSE_DIR"
         docker-compose down
+        ;;
+    6)
+        log "$PROJECT_NAME" "Aktualisiere Registry-Datei..."
+        initialize_project
         ;;
     8)
         echo -e "\e[41m\e[97mWARNUNG: Dies wird den Container und alle Daten des Projekts löschen!\e[0m"
@@ -147,6 +167,9 @@ case $choice in
             # Initialisiere das Projekt
             initialize_project
             docker-compose up -d
+            log "$PROJECT_NAME" "Erstelle config.json Datei nach dem Starten des Containers..."
+            create_config_json
+            connect_network
         else
             log "$PROJECT_NAME" "Hard Reset abgebrochen."
         fi
@@ -159,4 +182,3 @@ case $choice in
         echo "Ungültige Eingabe. Bitte wähle eine gültige Option."
         ;;
 esac
-mysql -u root -p < docker-entrypoint-initdb.d/init.sql

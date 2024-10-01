@@ -1,10 +1,19 @@
-#craete_database.py
-
 import os
 import json
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Enum, ForeignKey, Boolean
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 import enum
+import subprocess
+
+# Überprüfen und installieren Sie pymysql, falls es nicht vorhanden ist
+def ensure_pymysql_installed():
+    try:
+        import pymysql
+        print("pymysql ist bereits installiert.")
+    except ImportError:
+        print("pymysql ist nicht installiert. Installation wird durchgeführt...")
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "pymysql"])
+        print("pymysql wurde erfolgreich installiert.")
 
 # Lade die Konfigurationsdatei
 def load_config(config_file_path):
@@ -14,8 +23,9 @@ def load_config(config_file_path):
 
 # Verbindungsschema für MySQL
 def create_db_engine(config):
+    ensure_pymysql_installed()  # Sicherstellen, dass pymysql installiert ist
     db_type = "mysql+pymysql"
-    url = f"{db_type}://{config['db_user']}:{config['db_password']}@{config['db_host']}/{config['db_name']}"
+    url = f"{db_type}://{config['db_user']}:{config['db_password']}@{config['db_host']}:{config['db_port']}/{config['db_name']}"
     return create_engine(url, echo=False)
 
 # Sitzung und Basis erstellen
@@ -81,6 +91,9 @@ def main(config_file_path):
 
 if __name__ == "__main__":
     import sys
+    if len(sys.argv) < 2:
+        print("Usage: python create_database.py <config_file_path>")
+        sys.exit(1)
     main(sys.argv[1])
 
 # Exportieren der Klassen
