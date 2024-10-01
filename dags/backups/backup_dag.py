@@ -37,7 +37,7 @@ def create_db_backup():
     if not os.path.exists(backup_dir):
         os.makedirs(backup_dir)
     backup_file = os.path.join(backup_dir, 'db_backup.sql')
-    command = f"mysqldump -u root -p{os.getenv('MYSQL_PASSWORD')} -h localhost -P 3308 mydatabase > {backup_file}"
+    command = f"mysqldump -u root -p{os.getenv('MYSQL_PASSWORD')} -h localhost -P 3308 mldatalake > {backup_file}"
     subprocess.run(command, shell=True, check=True)
     return backup_file
 

@@ -1,6 +1,11 @@
 from airflow import DAG
 from airflow.operators.python_operator import PythonOperator
 from datetime import datetime
+import sys
+import os
+
+# Fügen Sie das Verzeichnis zum Python-Pfad hinzu
+sys.path.append(os.path.join(os.path.dirname(__file__), 'modules'))
 import create_database
 import extract_and_save_csv
 import import_to_db
@@ -26,7 +31,7 @@ def load_config(config_file_path):
         config = json.load(file)
     return config
 
-config_file_path = '/path/to/config.json'
+config_file_path = os.path.join(os.path.dirname(__file__), 'config.json')
 config = load_config(config_file_path)
 
 def run_create_database(config_file_path):

@@ -7,7 +7,7 @@ def extract_and_save_csv(zip_file_path, output_csv_path):
     with ZipFile(zip_file_path) as zf:
         cols = ['time', 'open', 'high', 'low', 'close', 'volume']
         dfs = pd.concat({text_file.filename.split('.')[0]: pd.read_csv(zf.open(text_file.filename), usecols=cols)
-                         for text_file in zf.infolist() if text_file.filename.endswith('.csv')})
+            for text_file in zf.infolist() if text_file.filename.endswith('.csv')})
     
     df = dfs.droplevel(1).reset_index().rename(columns={'index': 'ticker'})
     df = df[df['ticker'].str.contains('usd')]

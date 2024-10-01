@@ -1,4 +1,4 @@
-import_to_db.py
+#import_to_db.py
 
 import os
 import json

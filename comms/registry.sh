@@ -52,11 +52,14 @@ project_name = '$PROJECT_NAME'
 key = '$key'
 value = '$value'
 
+print(f'Öffne Datei: {registry_file}')
 with open(registry_file, 'r') as file:
     data = yaml.safe_load(file) or {'projects': defaultdict(dict)}
 
+print(f'Aktualisiere Projekt: {project_name} mit {key}={value}')
 data['projects'].setdefault(project_name, {})[key] = value
 
+print(f'Speichere Datei: {registry_file}')
 with open(registry_file, 'w') as file:
     yaml.safe_dump(data, file)
 "
