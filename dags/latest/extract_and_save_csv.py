@@ -1,3 +1,5 @@
+#Stand: Unbekannt 
+
 import pandas as pd
 from zipfile import ZipFile
 import json
