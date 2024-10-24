@@ -2,20 +2,27 @@ import yfinance as yf
 import pandas as pd
 from datetime import datetime, timedelta
 
-def load_yf_data(row, timeframe='1d'):
+def load_yf_data(row):
     ticker = row['ticker']
     last_update = row['last_update']#.strip()  # Entferne führende/trailing Leerzeichen
-    
+    timeframe = row['timeframe']
     #print(f"Originaler last_update-Wert: '{last_update}'")  # Debugging
     
-    try:
-        # Datum ohne überflüssige Teile verarbeiten
-        last_update = last_update.split(' ')[0]  # Nur das Datum übernehmen
-        last_update_dt = datetime.strptime(last_update, '%Y-%m-%d')  # String in datetime umwandeln
-    except ValueError as e:
-        print(f"Fehler beim Parsen von last_update: {e}")  # Explizites Debugging bei Umwandlungsfehler
+    # Überprüfen, ob last_update bereits ein datetime-Objekt ist
+    if isinstance(last_update, str):
+        try:
+            # Datum ohne überflüssige Teile verarbeiten
+            last_update = last_update.split(' ')[0]  # Nur das Datum übernehmen
+            last_update_dt = datetime.strptime(last_update, '%Y-%m-%d')  # String in datetime umwandeln
+        except ValueError as e:
+            print(f"Fehler beim Parsen von last_update: {e}")  # Explizites Debugging bei Umwandlungsfehler
+            return None
+    elif isinstance(last_update, datetime):
+        last_update_dt = last_update
+    else:
+        print(f"Unbekannter Typ für last_update: {type(last_update)}")
         return None
-
+    
     # Starte den Abruf am nächsten Tag nach dem letzten Update
     start_date = last_update_dt + timedelta(days=1)
     
@@ -23,14 +30,14 @@ def load_yf_data(row, timeframe='1d'):
     end_date = datetime.now() - timedelta(days=1)
 
     # Falls das Startdatum zu weit in der Vergangenheit liegt, beschränke den Abruf auf maximal 59 Tage
-    max_start_date = end_date - timedelta(days=59)
+    max_start_date = end_date - timedelta(days=58)
     if start_date < max_start_date:
         start_date = max_start_date
 
     start_str = start_date.strftime('%Y-%m-%d')
     end_str = end_date.strftime('%Y-%m-%d')
 
-    #print(f"Abruf von Daten für {ticker} von {start_str} bis {end_str}")  # Debugging für den Abrufzeitraum
+    print(f"Abruf von Daten für {ticker} von {start_str} bis {end_str}")  # Debugging für den Abrufzeitraum
 
     # Abrufen der Daten von Yahoo Finance
     yf_ticker = yf.Ticker(ticker)
@@ -112,17 +119,19 @@ if __name__ == "__main__":
     # Beispiel
     row = {
         'ticker': 'AAPL',
-        'name': 'Apple',
-        'market': 'stock',
+        #'ticker': 'EURUSD=X',
+        'name': 'Euro-Dollar',
+        'market': 'forex',
         'exchange': 'Yahoo Finance',
         'start_date': '2024-09-01',
         'last_update': '2024-10-01',  
+        'timeframe': '5m',
         'active': 1
     }
 
     # Daten abrufen
     
-    bars = load_yf_data(row, '5m')  # '1d' für tägliche Daten
+    bars = load_yf_data(row)
 
     if bars is not None:
         # Speichern der Daten in eine CSV-Datei
