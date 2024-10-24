@@ -1,4 +1,6 @@
 #fetch_data.py
+#TODO Beschreibung ergänzen
+
 
 import sqlite3
 import pandas as pd

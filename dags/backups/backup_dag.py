@@ -1,4 +1,4 @@
-#Stand: Unbekannt 
+# TODO Stand: Unbekannt 
 
 from airflow import DAG
 from airflow.operators.python_operator import PythonOperator
