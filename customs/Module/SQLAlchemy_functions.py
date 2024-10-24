@@ -86,6 +86,88 @@ def start_session():
     print("session started")
     return session
 
+# und in die Datenbank einfügen
+def insert_minute_bar(session, data, symbol_id):
+    try:
+        for index, row in data.iterrows():
+            minute_bar = MinuteBar(
+                date=row['date'],
+                open=row['open'],
+                high=row['high'],
+                low=row['low'],
+                close=row['close'],
+                volume=row['volume'],
+                symbol_id=symbol_id
+            )
+            session.add(minute_bar)
+        session.commit()
+        print(f"Minutenbalken für Symbol-ID {symbol_id} erfolgreich eingefügt.")
+        
+    except Exception as e:
+        print(f"Fehler beim Einfügen der MinuteBars für Symbol-ID {symbol_id}: {e}")
+        
+# Daten in FiveMinuteBar-Tabelle einfügen
+
+def insert_five_minute_bar(session, data, symbol_id):
+    try:
+        for index, row in data.iterrows():
+            # Prüfen, ob der Eintrag bereits existiert
+            existing_entry = session.query(FiveMinuteBar).filter_by(symbol_id=symbol_id, date=row['date']).first()
+
+            if existing_entry:
+                print(f"Eintrag für Symbol-ID {symbol_id} am {row['date']} existiert bereits, wird übersprungen.")
+                continue  # Überspringen, falls Eintrag vorhanden
+            
+            # Wenn kein Eintrag vorhanden ist, neuen Eintrag hinzufügen
+            five_minute_bar = FiveMinuteBar(
+                date=row['date'],
+                open=row['open'],
+                high=row['high'],
+                low=row['low'],
+                close=row['close'],
+                volume=row['volume'],
+                symbol_id=symbol_id
+            )
+            session.add(five_minute_bar)
+
+        session.commit()
+        print(f"5-Minuten-Balken für Symbol-ID {symbol_id} erfolgreich eingefügt.")
+
+    except Exception as e:
+        session.rollback()  # Session zurücksetzen
+        print(f"Fehler beim Einfügen der 5-Minuten-Bars für Symbol-ID {symbol_id}: {e}")
+        
+def insert_thirty_minute_bar(session, data, symbol_id):
+    try:
+        for index, row in data.iterrows():
+            # Prüfen, ob der Eintrag bereits existiert
+            existing_entry = session.query(ThirtyMinuteBar).filter_by(symbol_id=symbol_id, date=row['date']).first()
+
+            if existing_entry:
+                print(f"Eintrag für Symbol-ID {symbol_id} am {row['date']} existiert bereits, wird übersprungen.")
+                continue  # Überspringen, falls Eintrag vorhanden
+            
+            # Wenn kein Eintrag vorhanden ist, neuen Eintrag hinzufügen
+            thirty_minute_bar = ThirtyMinuteBar(
+                date=row['date'],
+                open=row['open'],
+                high=row['high'],
+                low=row['low'],
+                close=row['close'],
+                volume=row['volume'],
+                symbol_id=symbol_id
+            )
+            session.add(thirty_minute_bar)
+
+        session.commit()
+        print(f"30-Minuten-Balken für Symbol-ID {symbol_id} erfolgreich eingefügt.")
+
+    except Exception as e:
+        session.rollback()  # Session zurücksetzen
+        print(f"Fehler beim Einfügen der 30-Minuten-Bars für Symbol-ID {symbol_id}: {e}")
+
+
+
 if __name__ == "__main__":
 
     session = start_session()

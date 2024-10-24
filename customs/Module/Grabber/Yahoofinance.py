@@ -37,6 +37,11 @@ def load_yf_data(row):
     start_str = start_date.strftime('%Y-%m-%d')
     end_str = end_date.strftime('%Y-%m-%d')
 
+    # Überprüfen, ob bei der Abfrage mindestens ein Tag dazwischen liegt
+    if (end_date - start_date).days < 1:
+        print(f"Asset {row['ticker']} wurde kürzlich aktualisiert. Überspringe Verarbeitung.")
+        return None
+    
     print(f"Abruf von Daten für {ticker} von {start_str} bis {end_str}")  # Debugging für den Abrufzeitraum
 
     # Abrufen der Daten von Yahoo Finance
