@@ -1,3 +1,5 @@
+#Stand Veraltet, aber kann ins Arhiv oder als Referenz dienen
+
 import os
 import pandas as pd
 import zipfile
