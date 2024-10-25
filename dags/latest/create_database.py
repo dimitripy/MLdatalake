@@ -1,4 +1,4 @@
-#Stand: Unbeakannt 
+#Stand: veraltet, da "SQLAlchemy_functions.py" diese Funktionen ersetzt hat
 
 import os
 import json
