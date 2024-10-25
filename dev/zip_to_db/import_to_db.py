@@ -1,4 +1,4 @@
-#Stand: Unbekannt
+#Stand: ist veraltet und die Funktionalität ist gerade im notebook v2
 
 import os
 import sys
@@ -11,7 +11,6 @@ from sqlalchemy.orm import sessionmaker
 
 # Fügen Sie den Pfad zu `create_database.py` hinzu
 sys.path.append('/opt/airflow/dags/mldatalake/latest/modules')
-
 from create_database import Symbol, Market, MinuteBar
 
 # Lade die Konfigurationsdatei

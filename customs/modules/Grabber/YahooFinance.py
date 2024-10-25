@@ -120,6 +120,8 @@ def transform_data(data, symbol_id):
         return None
     return transformed_data
 
+
+#TODO: könnte als test ausgelagert werden 
 if __name__ == "__main__":
     # Beispiel
     row = {
@@ -140,7 +142,7 @@ if __name__ == "__main__":
 
     if bars is not None:
         # Speichern der Daten in eine CSV-Datei
-        bars.to_csv(f"{row['ticker']}_data.csv", index=False)
+        #bars.to_csv(f"{row['ticker']}_data.csv", index=False)
         #print(f"Daten wurden in {row['ticker']}_data.csv gespeichert.")
         print(bars)
     else:
