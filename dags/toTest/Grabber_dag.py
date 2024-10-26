@@ -1,5 +1,5 @@
 # Grabber_dag.py
-#Stand: ungetestet und noch zu überprüfen
+#Stand: TODO ungetestet und noch zu überprüfen
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from datetime import datetime
@@ -43,7 +43,7 @@ def load_and_process_assets():
         continue  # Fortfahren mit dem nächsten Asset
     session.close()
 
-with DAG('asset_data_pipeline', default_args=default_args, schedule_interval='@daily') as dag:
+with DAG('Grabber', default_args=default_args, schedule_interval='@daily') as dag:
     check_csv_task = PythonOperator(
         task_id='check_csv',
         python_callable=check_csv,
