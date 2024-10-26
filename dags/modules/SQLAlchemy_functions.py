@@ -73,7 +73,7 @@ class ThirtyMinuteBar(TimeBarMixin, Base):
 def start_session(config_path):
     if config_path is None:
         try:
-            config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'customs/modules/config.json'))
+            config_path = os.path.abspath(os.path.join(os.path.dirname(__file__),'/config.json'))
             config = load_config(config_path)
         except Exception as e:
             print(f"Fehler beim Laden der Konfigurationsdatei: {e}, 'customs/modules/config.json' existiert nicht.")
