@@ -4,8 +4,11 @@ import enum
 import pandas as pd
 import subprocess
 import sys
+from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Enum, ForeignKey, Boolean
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
+
+
 
 # Überprüfen und installieren Sie erforderliche Bibliotheken
 def install_dependencies():
@@ -50,15 +53,41 @@ class Symbol(Base):
     active = Column(Boolean, nullable=False)
 
 class TimeBarMixin:
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    date = Column(DateTime, nullable=False)
-    open = Column(Float)
-    high = Column(Float)
-    low = Column(Float)
-    close = Column(Float)
-    volume = Column(Float)
-    symbol_id = Column(Integer, ForeignKey('symbol.id', ondelete="CASCADE"), nullable=False)
-    symbol = relationship('Symbol')
+    @declared_attr
+    def id(cls):
+        return Column(Integer, primary_key=True, autoincrement=True)
+
+    @declared_attr
+    def date(cls):
+        return Column(DateTime, nullable=False)
+
+    @declared_attr
+    def open(cls):
+        return Column(Float)
+
+    @declared_attr
+    def high(cls):
+        return Column(Float)
+
+    @declared_attr
+    def low(cls):
+        return Column(Float)
+
+    @declared_attr
+    def close(cls):
+        return Column(Float)
+
+    @declared_attr
+    def volume(cls):
+        return Column(Float)
+
+    @declared_attr
+    def symbol_id(cls):
+        return Column(Integer, ForeignKey('symbol.id', ondelete="CASCADE"), nullable=False)
+
+    @declared_attr
+    def symbol(cls):
+        return relationship('Symbol')
 
 class MinuteBar(TimeBarMixin, Base):
     __tablename__ = 'minute_bar'
@@ -69,21 +98,30 @@ class FiveMinuteBar(TimeBarMixin, Base):
 class ThirtyMinuteBar(TimeBarMixin, Base):
     __tablename__ = 'thirty_minute_bar'
 
-# Sitzung starten und Tabellen erstellen
-def start_session(config_path):
-    if config_path is None:
-        try:
-            config_path = os.path.abspath(os.path.join(os.path.dirname(__file__),'/config.json'))
-            config = load_config(config_path)
-        except Exception as e:
-            print(f"Fehler beim Laden der Konfigurationsdatei: {e}, 'customs/modules/config.json' existiert nicht.")
-            return None
-    config = load_config(config_path)
-    engine = create_db_engine(config)
-    Base.metadata.create_all(engine)
-    Session = sessionmaker(bind=engine)
-    print("Session und Tabellen erfolgreich erstellt.")
-    return Session()
+
+def start_session(config_path=None, use_test_db=False):
+    # Setze den Pfad zur Testkonfiguration, wenn `use_test_db` auf True gesetzt ist
+    if use_test_db:
+        config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'test_config.json'))
+    elif config_path is None:
+        config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'config.json'))
+    
+    try:
+        config = load_config(config_path)
+    except Exception as e:
+        print(f"Fehler beim Laden der Konfigurationsdatei: {e}")
+        return None
+    
+    try:
+        engine = create_db_engine(config)
+        Base.metadata.create_all(engine)  # Erstelle alle Tabellen
+        Session = sessionmaker(bind=engine)
+        print(f"Session und Tabellen für {'Test-' if use_test_db else ''}Datenbank erfolgreich erstellt.")
+        return Session()
+    except Exception as e:
+        print(f"Fehler beim Erstellen der Datenbank-Engine: {e}")
+        return None
+
 
 # Allgemeine Funktion zum Einfügen von Daten
 def insert_data(session, data, table_class, symbol_id):

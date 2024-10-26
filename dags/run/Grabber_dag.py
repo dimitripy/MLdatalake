@@ -7,8 +7,8 @@ from modules.SQLAlchemy_functions import start_session
 import pandas as pd
 from modules.Grabber.grabber_load import process_asset
 
-csv_file_path = 'ref_assets.csv' # soll im gleichen Verzeichnis wie der dag gespeichert werden
-config_file = 'config.json'
+csv_file_path = './ref_assets.csv' # soll im gleichen Verzeichnis wie der dag gespeichert werden
+config_file = './config.json'
 
 default_args = {
     'owner': 'airflow',
@@ -31,7 +31,7 @@ def check_csv(file_path):
     return
     
 # Haupttask in einer Schleife:
-def load_and_process_assets():
+def load_and_process_assets(config_file, csv_file_path):
     session = start_session(config_file)
     assets_df = pd.read_csv(csv_file_path)
     for _, row in assets_df.iterrows():
@@ -52,7 +52,8 @@ with DAG('Grabber', default_args=default_args, schedule_interval='@daily') as da
 
     load_assets_task = PythonOperator(
         task_id='load_and_process_assets',
-        python_callable=load_and_process_assets
+        python_callable=load_and_process_assets,
+        op_args=[config_file, csv_file_path]
     )
 
     check_csv_task >> load_assets_task
