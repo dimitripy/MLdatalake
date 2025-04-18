@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  mysql:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    container_name: datalake_c
+    environment:
+      MYSQL_ROOT_PASSWORD: mysecretpassword
+      MYSQL_DATABASE: mldatalake
+      MYSQL_USER: mldatalake_user
+      MYSQL_PASSWORD: userpassword
+    volumes:
+      - database_data:/var/lib/mysql
+    ports:
+      - "3308:3306"
+    restart: unless-stopped
+
+volumes:
+  database_data:

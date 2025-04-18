@@ -23,18 +23,16 @@ CREATE TABLE IF NOT EXISTS symbol (
 );
 
 CREATE TABLE IF NOT EXISTS minute_bar (
-    b_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     date DATETIME NOT NULL,
+    sy_id INT NOT NULL,
     open FLOAT,
     high FLOAT,
     low FLOAT,
     close FLOAT,
     volume FLOAT,
-    sy_id INT NOT NULL,
     FOREIGN KEY (sy_id) REFERENCES symbol(sy_id)
         ON UPDATE CASCADE
         ON DELETE CASCADE,
-    UNIQUE (sy_id, date)
+    PRIMARY KEY (sy_id, date)
 );
-
 
