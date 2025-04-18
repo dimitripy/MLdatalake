@@ -1,0 +1,45 @@
+@startuml
+
+' Einstellungen für schönere Darstellung
+hide circle
+skinparam linetype ortho
+
+entity "security" as Security {
+    * sec_id : INT <<PK>>
+    --
+    exchange : VARCHAR(100)
+    category : VARCHAR(200)
+    sector : VARCHAR(100)
+}
+
+entity "symbol" as Symbol {
+    * sy_id : INT <<PK>>
+    --
+    ticker : VARCHAR(50)
+    name : VARCHAR(200)
+    market : ENUM('crypto', 'stock', 'forex', 'futures')
+    active : BOOLEAN
+    sec_id : INT <<FK>>
+    --
+    UNIQUE(ticker, sec_id)
+}
+
+entity "minute_bar" as MinuteBar {
+    * m_id : BIGINT <<PK>>
+    --
+    date : DATETIME
+    open : FLOAT
+    high : FLOAT
+    low : FLOAT
+    close : FLOAT
+    volume : FLOAT
+    sy_id : INT <<FK>>
+    --
+    UNIQUE(sy_id, date)
+}
+
+' Beziehungen
+Security ||--o{ Symbol : "sec_id"
+Symbol ||--o{ MinuteBar : "sy_id"
+
+@enduml

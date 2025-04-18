@@ -43,18 +43,26 @@ class Market(enum.Enum):
     forex = 'forex'
     futures = 'futures'
 
+class Securtiy(Base):
+    __tablename__ = 'security'
+    sec_id = Column(Integer, primary_key=True, autoincrement=True)
+    exchange = Column(String(100), nullable=False)
+    category = Column(String(200), nullable=False)
+    sector = Column(String(100), nullable=False)
+
 # Tabellenklassen
 class Symbol(Base):
     __tablename__ = 'symbol'
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    sy_id = Column(Integer, primary_key=True, autoincrement=True)
     ticker = Column(String(50), nullable=False)
     name = Column(String(200), nullable=False)
     market = Column(Enum(Market), nullable=False)
     active = Column(Boolean, nullable=False)
+    sec_id = Column(Integer, ForeignKey('security.sec_id', ondelete="CASCADE"), nullable=False)
 
 class TimeBarMixin:
     @declared_attr
-    def id(cls):
+    def b_id(cls):
         return Column(Integer, primary_key=True, autoincrement=True)
 
     @declared_attr
@@ -92,11 +100,11 @@ class TimeBarMixin:
 class MinuteBar(TimeBarMixin, Base):
     __tablename__ = 'minute_bar'
 
-class FiveMinuteBar(TimeBarMixin, Base):
-    __tablename__ = 'five_minute_bar'
+#class FiveMinuteBar(TimeBarMixin, Base):
+#    __tablename__ = 'five_minute_bar'
 
-class ThirtyMinuteBar(TimeBarMixin, Base):
-    __tablename__ = 'thirty_minute_bar'
+#class ThirtyMinuteBar(TimeBarMixin, Base):
+#    __tablename__ = 'thirty_minute_bar'
 
 
 def start_session(config_path=None, use_test_db=False):
