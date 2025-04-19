@@ -4,6 +4,11 @@ from sqlalchemy import create_engine, text
 import logging
 from schemas import SCHEMAS
 
+from enum import Enum
+
+class TableName(Enum):
+    MINUTE_BAR = "minute_bar"
+
 class DatabaseUploader:
     def __init__(self, config_path):
         self.engine = None
@@ -38,7 +43,7 @@ class DatabaseUploader:
         if self.engine:
             self.engine.dispose()
             logging.info("Datenbankverbindung geschlossen.")
-
+    ''' 
     def set_csv_path(self, csv_path, additional_data=None):
         self.csv_path = csv_path
         logging.info(f"CSV-Pfad gesetzt: {csv_path}")
@@ -55,7 +60,7 @@ class DatabaseUploader:
         except Exception as e:
             logging.error(f"Fehler beim Verarbeiten der CSV-Daten: {e}")
             raise
-
+    '''
     def validate_data(self, df, source_name):
         try:
             schema = SCHEMAS.get(source_name)
@@ -156,20 +161,44 @@ class DatabaseUploader:
         except Exception as e:
             logging.error(f"Fehler beim Zuweisen von `sy_id`: {e}")
             raise
-        
-
         return df
 
-    def upload_data(self, table_name, df):
+    def get_table_enum(table_name_str):
+        try:
+            return TableName[table_name_str.upper().replace(" ", "_")]
+        except KeyError:
+            raise ValueError(f"Ungültiger Tabellenname: {table_name_str}")
+
+    def upload_data(self, df, table_name, source_name):
+        try:
+            table= TableName[table_name.upper().replace(" ", "_")]
+        except KeyError:
+            raise ValueError(f"Ungültiger Tabellenname: {table_name}")
+        
+        validation_status = self.validate_data(df, source_name)
+        
+        if validation_status['status'] != "success":
+            return validation_status
+        
         try:
             df = self.preprocess_data(df)
+            data = df.to_dict(orient='records')
+
             with self.engine.connect() as connection:
                 transaction = connection.begin()
                 try:
-                    df.to_sql(table_name, con=connection, if_exists='append', index=False)
+                    # Verwende das Enum, um den Tabellennamen sicher zu beziehen
+                    insert_query = f"""
+                        INSERT INTO {table.value} (date, sy_id, open, high, low, close, volume)
+                        VALUES (:date, :sy_id, :open, :high, :low, :close, :volume)
+                        ON DUPLICATE KEY UPDATE
+                        open = VALUES(open), high = VALUES(high), low = VALUES(low),
+                        close = VALUES(close), volume = VALUES(volume)
+                    """
+                    connection.execute(text(insert_query), data)
                     transaction.commit()
-                    logging.info("Daten erfolgreich hochgeladen.")
-                    return {"status": "success"}
+                    logging.info("Daten erfolgreich hochgeladen, Duplikate behandelt.")
+                    return {"status": "success", "message": "Daten erfolgreich hochgeladen."}
                 except Exception as e:
                     transaction.rollback()
                     logging.error(f"Fehler beim Hochladen der Daten: {e}")
