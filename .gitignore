@@ -10,3 +10,4 @@
 *.csv
 *.zip
 *.pyc
+/c_mldatalake/approle_credentials.json

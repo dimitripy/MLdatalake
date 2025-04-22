@@ -1,35 +1,29 @@
-import json
+
 import pandas as pd
 from sqlalchemy import create_engine, text
 import logging
 from schemas import SCHEMAS
-
 from enum import Enum
 
 class TableName(Enum):
     MINUTE_BAR = "minute_bar"
 
 class DatabaseUploader:
-    def __init__(self, config_path):
+    def __init__(self, vault_client, secret_path):
         self.engine = None
         self.csv_path = None
         self.config = None
-        self._load_config(config_path)
+        self.vault_client = vault_client
+        self.secret_path = secret_path
         self._start_session()
         self.close_session()
 
-    def _load_config(self, config_path):
-        try:
-            with open(config_path, 'r') as config_file:
-                self.config = json.load(config_file)
-            logging.info("Konfigurationsdaten erfolgreich geladen.")
-        except Exception as e:
-            logging.error(f"Fehler beim Laden der Konfigurationsdaten: {e}")
-            raise
+    def _get_db_credentials_from_vault(self):
+        return self.vault_client.get_secret(self.secret_path)
 
     def _start_session(self):
         try:
-            db_details = self.config
+            db_details = self._get_db_credentials_from_vault()
             self.engine = create_engine(
                 f"mysql+mysqlconnector://{db_details['db_user']}:{db_details['db_password']}@"
                 f"{db_details['db_host']}:{db_details['db_port']}/{db_details['db_name']}"
@@ -43,24 +37,7 @@ class DatabaseUploader:
         if self.engine:
             self.engine.dispose()
             logging.info("Datenbankverbindung geschlossen.")
-    ''' 
-    def set_csv_path(self, csv_path, additional_data=None):
-        self.csv_path = csv_path
-        logging.info(f"CSV-Pfad gesetzt: {csv_path}")
-        return self.process_csv(additional_data)
 
-    def process_csv(self, additional_data=None):
-        try:
-            df = pd.read_csv(self.csv_path)
-            if additional_data:
-                for key, value in additional_data.items():
-                    df[key] = value
-            logging.info("CSV-Daten erfolgreich verarbeitet.")
-            return df
-        except Exception as e:
-            logging.error(f"Fehler beim Verarbeiten der CSV-Daten: {e}")
-            raise
-    '''
     def validate_data(self, df, source_name):
         try:
             schema = SCHEMAS.get(source_name)

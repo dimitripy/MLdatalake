@@ -1,9 +1,16 @@
 from Uploader import DatabaseUploader
 import pandas as pd
 import logging
+from Vault_Client import VaultClient
 
 def main():
-    uploader = DatabaseUploader("/home/ageq/Git_Projects/MLdatalake/c_mldatalake/DataManager/config.json")
+
+    vault_url = "http://localhost:8200"
+    approle_credentials_path = "/home/ageq/Git_Projects/MLdatalake/c_mldatalake/DataManager/approle_credentials.json"
+    secret_path = "mysql/user"  
+    
+    vault_client = VaultClient(vault_url, approle_credentials_path)
+    uploader = DatabaseUploader(vault_client, secret_path)
 
     # Symbol hinzufügen falls es neu sein sollte 
     uploader.add_symbol(ticker="AAPL-USD", name="Apple Inc.", market="stock", exchange="Yahoo Finance", sector="Technology", category="EQUITY")
